@@ -123,7 +123,7 @@ async def process_message(c: Client, m, msg):
         formatted_name = re.sub(r'[_\.]', ' ', name).strip()
 
         data = {"file_name": formatted_name, "share_link": share_link}
-        response = requests.post("https://movietop.link/upcoming-movies", json=data)
+        response = requests.post("https://movielounge.in/upcoming-movies", json=data)
         if response.status_code != 200:
             print(f"API error ({response.status_code}): {response.text}")
     except Exception as e:
@@ -185,7 +185,7 @@ async def private_receive_handler(c: Client, m: Message):
         file_link = f"https://telegram.me/{Var.SECOND_BOTUSERNAME}?start=file_{log_msg.id}"
         share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         
-        url = "https://movietop.link/upcoming-movies"
+        url = "https://movielounge.in/upcoming-movies"
         
         name = format(get_name(log_msg));
         formatted_name = re.sub(r'[_\.]', ' ', name)  # Replace underscores and dots with spaces
@@ -249,7 +249,7 @@ async def channel_receive_handler(bot, broadcast):
         online_link = f"{Var.URL}{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         
-        url = "https://movietop.link/upcoming-movies"
+        url = "https://movielounge.in/upcoming-movies"
         
         name = format(get_name(log_msg));
         formatted_name = re.sub(r'[_\.]', ' ', name)  # Replace underscores and dots with spaces
