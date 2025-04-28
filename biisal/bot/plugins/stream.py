@@ -32,13 +32,9 @@ msg_text = """<b>‣ ʏᴏᴜʀ ʟɪɴᴋ ɢᴇɴᴇʀᴀᴛᴇᴅ ! 😎
 
 ‣ ɢᴇᴛ <a href="https://t.me/bots_up">ᴍᴏʀᴇ ғɪʟᴇs</a></b> 🤡"""
 
-
-
-
 @StreamBot.on_message(filters.command("vansh"))
 async def handle_vansh_command(c: Client, m):
     try:
-        # Validate and extract the message link
         match = re.search(r"t\.me\/(?:c\/)?(?P<username>[\w\d_]+)\/(?P<msg_id>\d+)", m.text)
         if not match:
             await m.reply_text("Invalid link. Please send a valid Telegram message link.")
@@ -47,20 +43,17 @@ async def handle_vansh_command(c: Client, m):
         username_or_id = match.group("username")
         msg_id = int(match.group("msg_id"))
 
-        # Check if it's a numeric ID (private group/channel)
         if username_or_id.isdigit():
-            chat_id = int("-100" + username_or_id)  # Private group/channel ID
+            chat_id = int("-100" + username_or_id)
         else:
-            chat_id = username_or_id  # Public group/channel username
+            chat_id = username_or_id
 
-        # Fetch the channel details
         try:
             channel = await c.get_chat(chat_id)
         except Exception as e:
             await m.reply_text(f"Failed to fetch chat details: {e}")
             return
 
-        # Fetch the message to ensure it's accessible
         try:
             first_message = await c.get_messages(chat_id, msg_id)
             if not first_message or not hasattr(first_message, "media"):
@@ -70,11 +63,10 @@ async def handle_vansh_command(c: Client, m):
             await m.reply_text(f"Failed to fetch the starting message: {e}")
             return
 
-        # Fetch messages one by one starting from msg_id
         messages = []
         current_id = msg_id
 
-        for _ in range(1000000):  # Limit to 25 messages
+        for _ in range(1000000):
             try:
                 msg = await c.get_messages(chat_id, current_id)
                 if hasattr(msg, "media") and msg.media:
@@ -90,7 +82,6 @@ async def handle_vansh_command(c: Client, m):
         total_files = len(messages)
         status_message = await m.reply_text(f"\u23F3 Processing {total_files} files...")
 
-        # Process files concurrently
         tasks = [process_message(c, m, msg) for msg in messages]
         await asyncio.gather(*tasks)
 
@@ -106,10 +97,6 @@ def get_name(msg):
         return msg.video.file_name
     return "Unknown"
 
-# def get_hash(msg):
-#     # Example hash logic; you can implement a real hash function based on your needs
-#     return str(hash(msg.id))[:8]
-
 async def process_message(c: Client, m, msg):
     try:
         log_msg = await msg.forward(chat_id=Var.BIN_CHANNEL)
@@ -123,20 +110,15 @@ async def process_message(c: Client, m, msg):
         formatted_name = re.sub(r'[_\.]', ' ', name).strip()
 
         data = {"file_name": formatted_name, "share_link": share_link}
-        response = requests.post("https://movielounge.in/upcoming-movies", json=data)
+        response = requests.post("https://movielounge.in/api/upcoming-movies", json=data)
         if response.status_code != 200:
             print(f"API error ({response.status_code}): {response.text}")
     except Exception as e:
         await m.reply_text(f"Error processing message: {e}")
 
-
-
-
-# Handler for Private Messages
 @StreamBot.on_message((filters.private) & (filters.document | filters.video | filters.audio | filters.photo), group=4)
 async def private_receive_handler(c: Client, m: Message):
     try:
-        # Check if the user exists in the database, if not, add them
         if not await db.is_user_exist(m.from_user.id):
             await db.add_user(m.from_user.id)
             await c.send_message(
@@ -144,7 +126,6 @@ async def private_receive_handler(c: Client, m: Message):
                 f"New User Joined! : \n\n Name : [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Started Your Bot!!"
             )
 
-        # Check for updates channel subscription
         if Var.UPDATES_CHANNEL != "None":
             try:
                 user = await c.get_chat_member(Var.UPDATES_CHANNEL, m.chat.id)
@@ -171,26 +152,22 @@ async def private_receive_handler(c: Client, m: Message):
                 await m.reply_text(f"Error: {str(e)}")
                 return
 
-        # Check if the user is banned
         ban_chk = await db.is_banned(int(m.from_user.id))
         if ban_chk:
             return await m.reply(Var.BAN_ALERT)
 
-        # Forward the message to the BIN_CHANNEL
         log_msg = await m.forward(chat_id=Var.BIN_CHANNEL)
 
-        # Generate Links
         stream_link = f"https://ddbots.blogspot.com/p/stream.html?link={str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         online_link = f"https://ddbots.blogspot.com/p/download.html?link={str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         file_link = f"https://telegram.me/{Var.SECOND_BOTUSERNAME}?start=file_{log_msg.id}"
         share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         
-        url = "https://movielounge.in/upcoming-movies"
+        url = "https://movielounge.in/api/upcoming-movies"
         
-        name = format(get_name(log_msg));
-        formatted_name = re.sub(r'[_\.]', ' ', name)  # Replace underscores and dots with spaces
-        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  # Collapse multiple spaces into one
-
+        name = format(get_name(log_msg))
+        formatted_name = re.sub(r'[_\.]', ' ', name)
+        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()
 
         data = {
             "file_name": formatted_name,
@@ -198,9 +175,6 @@ async def private_receive_handler(c: Client, m: Message):
         }
         response = requests.post(url, json=data)
 
-    
-
-        # Reply to the user
         await m.reply_text(
             text=msg_text.format(get_name(log_msg), humanbytes(get_media_file_size(m)), online_link, stream_link),
             quote=True,
@@ -222,18 +196,16 @@ async def private_receive_handler(c: Client, m: Message):
         )
 
         await m.reply_text(
-        text="✅ Your request has been processed successfully. Please use the above buttons to proceed!",
-        quote=True
-    )
+            text="✅ Your request has been processed successfully. Please use the above buttons to proceed!",
+            quote=True
+        )
         
-
     except FloodWait as e:
         print(f"Sleeping for {str(e.x)} seconds due to FloodWait")
         await asyncio.sleep(e.x)
     except Exception as e:
         await m.reply_text(f"An error occurred: {e}")
 
-# Handler for Channel Messages
 @StreamBot.on_message(filters.channel & ~filters.group & (filters.document | filters.video | filters.photo) & ~filters.forwarded, group=-1)
 async def channel_receive_handler(bot, broadcast):
     if int(broadcast.chat.id) in Var.BAN_CHNL:
@@ -249,12 +221,11 @@ async def channel_receive_handler(bot, broadcast):
         online_link = f"{Var.URL}{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         
-        url = "https://movielounge.in/upcoming-movies"
+        url = "https://movielounge.in/api/upcoming-movies"
         
-        name = format(get_name(log_msg));
-        formatted_name = re.sub(r'[_\.]', ' ', name)  # Replace underscores and dots with spaces
-        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  # Collapse multiple spaces into one
-
+        name = format(get_name(log_msg))
+        formatted_name = re.sub(r'[_\.]', ' ', name)
+        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()
 
         data = {
             "file_name": formatted_name,
