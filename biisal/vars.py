@@ -14,7 +14,7 @@ class Var(object):
     MULTI_CLIENT = False
     API_ID = int(getenv('API_ID', '24503270'))
     API_HASH = str(getenv('API_HASH', '53b04d58c085c3136ceda8036ee9a1da'))
-    BOT_TOKEN = str(getenv('BOT_TOKEN' , '7129593614:AAHOkScUn-Kafl-nt12yYnyDR_hxGKWBp1g'))
+    BOT_TOKEN = str(getenv('BOT_TOKEN' , '7129593614:AAH4gC-EYtC1icnfOiUWsuR4aP6YAx0FA4s'))
     name = str(getenv('name', 'File_Press_bot'))
     SLEEP_THRESHOLD = int(getenv('SLEEP_THRESHOLD', '60'))
     WORKERS = int(getenv('WORKERS', '4'))
@@ -47,4 +47,4 @@ class Var(object):
     DB_URI = str(getenv('DB_URI', 'mongodb+srv://abdulmk184:abdulmk18@cluster0.fv4ffn1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'))
     DB_NAME = str(getenv("DB_NAME", "Khalik"))
     SECOND_BOTUSERNAME = str(getenv("SECOND_BOTUSERNAME", "File_Sender_oBot"))
-    FILE_BOT_TOKEN = str(getenv('FILE_BOT_TOKEN', '7523273025:AAHjn2IT61OF78JdfY8jf1U4dQgXCy7NNxU'))
+    FILE_BOT_TOKEN = str(getenv('FILE_BOT_TOKEN', '7523273025:AAH4S11te27oeOouFOhi64xdaCZyBUnXQvg'))
