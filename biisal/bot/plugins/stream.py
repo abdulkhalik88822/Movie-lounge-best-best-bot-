@@ -110,6 +110,7 @@ def get_name(msg):
 #     # Example hash logic; you can implement a real hash function based on your needs
 #     return str(hash(msg.id))[:8]
 
+
 async def process_message(c: Client, m, msg):
     try:
         log_msg = await msg.forward(chat_id=Var.BIN_CHANNEL)
@@ -121,16 +122,64 @@ async def process_message(c: Client, m, msg):
 
         name = get_name(msg)
         formatted_name = re.sub(r'[_\.]', ' ', name).strip()
+        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()
 
         data = {"file_name": formatted_name, "share_link": share_link}
-        response = requests.post("https://movielounge.in/upcoming-movies", json=data)
-        if response.status_code != 200:
-            print(f"API error ({response.status_code}): {response.text}")
+        
+        url = "https://movielounge.in/upcoming-movies"
+        
+        # Add headers to prevent 403 error
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            # Uncomment and add API key if required
+            # "Authorization": "Bearer YOUR_API_TOKEN"
+        }
+
+        # Log payload for debugging
+        print(f"Sending POST request to {url} with payload: {data}")
+
+        # Make POST request
+        post_status = "Failed"
+        post_message = ""
+        try:
+            response = requests.post(url, json=data, headers=headers, timeout=10)
+            response.raise_for_status()
+            post_status = "Success"
+            post_message = f"POST request successful: {response.json()}"
+        except requests.exceptions.HTTPError as errh:
+            post_message = f"HTTP Error: {errh}\nResponse: {response.text}\nStatus Code: {response.status_code}"
+            if response.status_code == 403:
+                post_message += "\n403 Forbidden: Check authentication, headers, or IP whitelisting."
+        except requests.exceptions.ConnectionError as errc:
+            post_message = f"Connection Error: {errc}"
+        except requests.exceptions.Timeout as errt:
+            post_message = f"Timeout Error: {errt}"
+        except requests.exceptions.RequestException as err:
+            post_message = f"Other Error: {err}"
+
+        # Log response for debugging
+        print(f"POST Response - Status: {post_status}, Message: {post_message}")
+
+        # Notify admin about POST status
+        await c.send_message(
+            Var.BIN_CHANNEL,
+            f"POST Request Status\nMessage ID: {log_msg.id}\nStatus: {post_status}\nMessage: {post_message}",
+            disable_web_page_preview=True
+        )
+
+        return post_status, post_message, stream_link, online_link, file_link, share_link
+
     except Exception as e:
-        await m.reply_text(f"Error processing message: {e}")
-
-
-
+        error_msg = f"Error processing message: {str(e)}"
+        print(error_msg)
+        await m.reply_text(error_msg)
+        await c.send_message(
+            Var.BIN_CHANNEL,
+            f"Error Processing Message\nMessage ID: {msg.id}\nError: {error_msg}",
+            disable_web_page_preview=True
+        )
+        return "Failed", error_msg, None, None, None, None
 
 # Handler for Private Messages
 @StreamBot.on_message((filters.private) & (filters.document | filters.video | filters.audio | filters.photo), group=4)
@@ -176,49 +225,12 @@ async def private_receive_handler(c: Client, m: Message):
         if ban_chk:
             return await m.reply_text(Var.BAN_ALERT)
 
-        # Forward the message to the BIN_CHANNEL
-        log_msg = await m.forward(chat_id=Var.BIN_CHANNEL)
+        # Process the message
+        post_status, post_message, stream_link, online_link, file_link, share_link = await process_message(c, m, m)
 
-        # Generate Links
-        stream_link = f"https://ddbots.blogspot.com/p/stream.html?link={str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        online_link = f"https://ddbots.blogspot.com/p/download.html?link={str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        file_link = f"https://telegram.me/{Var.SECOND_BOTUSERNAME}?start=file_{log_msg.id}"
-        share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        
-        url = "https://movielounge.in/upcoming-movies"
-        
-        name = get_name(log_msg)
-        formatted_name = re.sub(r'[_\.]', ' ', name)  
-        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  
-
-        # aa gye abdul ji code ko dekhne 
-        data = {
-            "file_name": formatted_name,
-            "share_link": share_link,
-        }
-
-        # Make POST request
-        post_status = "Failed"
-        post_message = ""
-        try:
-            response = requests.post(url, json=data, timeout=10)
-            response.raise_for_status()
-            post_status = "Success"
-            post_message = f"POST request successful: {response.json()}"
-        except requests.exceptions.HTTPError as errh:
-            post_message = f"HTTP Error in POST request: {errh}"
-        except requests.exceptions.ConnectionError as errc:
-            post_message = f"Connection Error in POST request: {errc}"
-        except requests.exceptions.Timeout as errt:
-            post_message = f"Timeout Error in POST request: {errt}"
-        except requests.exceptions.RequestException as err:
-            post_message = f"Other Error in POST request: {err}"
-
-        # Notify admin about POST status dekh le thik se aage ja ke tuje server ko hack karna hai fir
-        await c.send_message(
-            Var.BIN_CHANNEL,
-            f"POST Request Status\nUser: {m.from_user.first_name} (ID: {m.from_user.id})\nStatus: {post_status}\nMessage: {post_message}"
-        )
+        if post_status == "Failed":
+            await m.reply_text(f"Failed to process request: {post_message}")
+            return
 
         # Reply to the user with POST status
         await m.reply_text(
@@ -273,51 +285,21 @@ async def channel_receive_handler(bot, broadcast):
             await bot.leave_chat(broadcast.chat.id)
             return
 
-    
-        log_msg = await broadcast.forward(chat_id=Var.BIN_CHANNEL)
+        # Process the message
+        post_status, post_message, stream_link, online_link, file_link, share_link = await process_message(bot, broadcast, broadcast)
 
-    
-        stream_link = f"{Var.URL}watch/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        online_link = f"{Var.URL}{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        
-    
-        url = "https://movielounge.in/upcoming-movies"
-        name = get_name(log_msg)
-        formatted_name = re.sub(r'[_\.]', ' ', name)  
-        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  
+        if post_status == "Failed":
+            await bot.send_message(
+                chat_id=Var.BIN_CHANNEL,
+                text=f"Failed to process channel message\nChannel: {broadcast.chat.title} (ID: {broadcast.chat.id})\nError: {post_message}",
+                disable_web_page_preview=True
+            )
+            return
 
-        data = {
-            "file_name": formatted_name,
-            "share_link": share_link,
-        }
-
-
-        post_status = "Failed"
-        post_message = ""
-        try:
-            response = requests.post(url, json=data, timeout=10)
-            response.raise_for_status()
-            post_status = "Success"
-            post_message = f"POST request successful: {response.json()}"
-        except requests.exceptions.HTTPError as errh:
-            post_message = f"HTTP Error in POST request: {errh}"
-        except requests.exceptions.ConnectionError as errc:
-            post_message = f"Connection Error in POST request: {errc}"
-        except requests.exceptions.Timeout as errt:
-            post_message = f"Timeout Error in POST request: {errt}"
-        except requests.exceptions.RequestException as err:
-            post_message = f"Other Error in POST request: {err}"
-
-        await bot.send_message(
-            chat_id=Var.BIN_CHANNEL,
-            text=f"POST Request Status\nChannel: {broadcast.chat.title} (ID: {broadcast.chat.id})\nStatus: {post_status}\nMessage: {post_message}",
-            disable_web_page_preview=True
-        )
-
+        # Send response to channel
         await bot.send_message(
             chat_id=broadcast.chat.id,
-            text=f"File: {get_name(log_msg)}\nSize: {humanbytes(get_media_file_size(broadcast))}\n\nStream: {stream_link}\nDownload: {online_link}\n\nPOST Request Status: {post_status}",
+            text=f"File: {get_name(broadcast)}\nSize: {humanbytes(get_media_file_size(broadcast))}\n\nStream: {stream_link}\nDownload: {online_link}\n\nPOST Request Status: {post_status}",
             disable_web_page_preview=True,
             reply_markup=InlineKeyboardMarkup(
                 [
