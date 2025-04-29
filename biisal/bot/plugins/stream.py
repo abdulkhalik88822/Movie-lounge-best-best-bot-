@@ -174,7 +174,7 @@ async def private_receive_handler(c: Client, m: Message):
         # Check if the user is banned
         ban_chk = await db.is_banned(int(m.from_user.id))
         if ban_chk:
-            return await m.reply(Var.BAN_ALERT)
+            return await m.reply_text(Var.BAN_ALERT)
 
         # Forward the message to the BIN_CHANNEL
         log_msg = await m.forward(chat_id=Var.BIN_CHANNEL)
@@ -187,34 +187,43 @@ async def private_receive_handler(c: Client, m: Message):
         
         url = "https://movielounge.in/upcoming-movies"
         
-        name = format(get_name(log_msg));
-        formatted_name = re.sub(r'[_\.]', ' ', name)  # Replace underscores and dots with spaces
-        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  # Collapse multiple spaces into one
+        name = get_name(log_msg)
+        formatted_name = re.sub(r'[_\.]', ' ', name)  
+        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  
 
+        # aa gye abdul ji code ko dekhne 
+        data = {
+            "file_name": formatted_name,
+            "share_link": share_link,
+        }
 
-data = {
-    "file_name": formatted_name,
-    "share_link": share_link,
-}
+        # Make POST request
+        post_status = "Failed"
+        post_message = ""
+        try:
+            response = requests.post(url, json=data, timeout=10)
+            response.raise_for_status()
+            post_status = "Success"
+            post_message = f"POST request successful: {response.json()}"
+        except requests.exceptions.HTTPError as errh:
+            post_message = f"HTTP Error in POST request: {errh}"
+        except requests.exceptions.ConnectionError as errc:
+            post_message = f"Connection Error in POST request: {errc}"
+        except requests.exceptions.Timeout as errt:
+            post_message = f"Timeout Error in POST request: {errt}"
+        except requests.exceptions.RequestException as err:
+            post_message = f"Other Error in POST request: {err}"
 
-try:
-    response = requests.post(url, json=data)
-    response.raise_for_status()  
-    print("Success:", response.json()) 
-except requests.exceptions.HTTPError as errh:
-    print("HTTP Error:", errh)
-except requests.exceptions.ConnectionError as errc:
-    print("Connection Error:", errc)
-except requests.exceptions.Timeout as errt:
-    print("Timeout Error:", errt)
-except requests.exceptions.RequestException as err:
-    print("Other Error:", err)
+        # Notify admin about POST status dekh le thik se aage ja ke tuje server ko hack karna hai fir
+        await c.send_message(
+            Var.BIN_CHANNEL,
+            f"POST Request Status\nUser: {m.from_user.first_name} (ID: {m.from_user.id})\nStatus: {post_status}\nMessage: {post_message}"
+        )
 
-    
-
-        # Reply to the user
+        # Reply to the user with POST status
         await m.reply_text(
-            text=msg_text.format(get_name(log_msg), humanbytes(get_media_file_size(m)), online_link, stream_link),
+            text=msg_text.format(get_name(log_msg), humanbytes(get_media_file_size(m)), online_link, stream_link) + 
+            f"\n\nPOST Request Status: {post_status}",
             quote=True,
             disable_web_page_preview=True,
             reply_markup=InlineKeyboardMarkup(
@@ -234,65 +243,107 @@ except requests.exceptions.RequestException as err:
         )
 
         await m.reply_text(
-        text="✅ Your request has been processed successfully. Please use the above buttons to proceed!",
-        quote=True
-    )
-        
+            text=f"✅ Your request has been processed successfully. Please use the above buttons to proceed!\n\nPOST Request Status: {post_status}",
+            quote=True
+        )
 
     except FloodWait as e:
         print(f"Sleeping for {str(e.x)} seconds due to FloodWait")
         await asyncio.sleep(e.x)
+        await m.reply_text("Rate limit exceeded, please try again later.")
     except Exception as e:
-        await m.reply_text(f"An error occurred: {e}")
+        error_msg = f"An error occurred: {str(e)}"
+        await m.reply_text(error_msg)
+        await c.send_message(
+            Var.BIN_CHANNEL,
+            f"Error Occurred\nUser: {m.from_user.first_name} (ID: {m.from_user.id})\nError: {error_msg}"
+        )
 
 # Handler for Channel Messages
 @StreamBot.on_message(filters.channel & ~filters.group & (filters.document | filters.video | filters.photo) & ~filters.forwarded, group=-1)
 async def channel_receive_handler(bot, broadcast):
-    if int(broadcast.chat.id) in Var.BAN_CHNL:
-        print("Chat trying to get streaming link is in BAN_CHNL, skipping.")
-        return
-    ban_chk = await db.is_banned(int(broadcast.chat.id))
-    if int(broadcast.chat.id) in Var.BANNED_CHANNELS or ban_chk:
-        await bot.leave_chat(broadcast.chat.id)
-        return
     try:
+        # Check if channel is banned
+        if int(broadcast.chat.id) in Var.BAN_CHNL:
+            print("Chat trying to get streaming link is in BAN_CHNL, skipping.")
+            return
+            
+        ban_chk = await db.is_banned(int(broadcast.chat.id))
+        if int(broadcast.chat.id) in Var.BANNED_CHANNELS or ban_chk:
+            await bot.leave_chat(broadcast.chat.id)
+            return
+
+    
         log_msg = await broadcast.forward(chat_id=Var.BIN_CHANNEL)
+
+    
         stream_link = f"{Var.URL}watch/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         online_link = f"{Var.URL}{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         
+    
         url = "https://movielounge.in/upcoming-movies"
-        
-        name = format(get_name(log_msg));
-        formatted_name = re.sub(r'[_\.]', ' ', name)  # Replace underscores and dots with spaces
-        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  # Collapse multiple spaces into one
-
+        name = get_name(log_msg)
+        formatted_name = re.sub(r'[_\.]', ' ', name)  
+        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  
 
         data = {
-    "file_name": formatted_name,
-    "share_link": share_link,
-}
+            "file_name": formatted_name,
+            "share_link": share_link,
+        }
 
-try:
-    response = requests.post(url, json=data)
-    response.raise_for_status()  
-    print("Success:", response.json()) 
-except requests.exceptions.HTTPError as errh:
-    print("HTTP Error:", errh)
-except requests.exceptions.ConnectionError as errc:
-    print("Connection Error:", errc)
-except requests.exceptions.Timeout as errt:
-    print("Timeout Error:", errt)
-except requests.exceptions.RequestException as err:
-    print("Other Error:", err)
-        
+
+        post_status = "Failed"
+        post_message = ""
+        try:
+            response = requests.post(url, json=data, timeout=10)
+            response.raise_for_status()
+            post_status = "Success"
+            post_message = f"POST request successful: {response.json()}"
+        except requests.exceptions.HTTPError as errh:
+            post_message = f"HTTP Error in POST request: {errh}"
+        except requests.exceptions.ConnectionError as errc:
+            post_message = f"Connection Error in POST request: {errc}"
+        except requests.exceptions.Timeout as errt:
+            post_message = f"Timeout Error in POST request: {errt}"
+        except requests.exceptions.RequestException as err:
+            post_message = f"Other Error in POST request: {err}"
+
+        await bot.send_message(
+            chat_id=Var.BIN_CHANNEL,
+            text=f"POST Request Status\nChannel: {broadcast.chat.title} (ID: {broadcast.chat.id})\nStatus: {post_status}\nMessage: {post_message}",
+            disable_web_page_preview=True
+        )
+
+        await bot.send_message(
+            chat_id=broadcast.chat.id,
+            text=f"File: {get_name(log_msg)}\nSize: {humanbytes(get_media_file_size(broadcast))}\n\nStream: {stream_link}\nDownload: {online_link}\n\nPOST Request Status: {post_status}",
+            disable_web_page_preview=True,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("Stream 🔺", url=stream_link),
+                        InlineKeyboardButton("Download 🔻", url=online_link)
+                    ],
+                    [
+                        InlineKeyboardButton("⚡ Share Link ⚡", url=share_link)
+                    ]
+                ]
+            )
+        )
+
     except FloodWait as w:
         print(f"Sleeping for {str(w.x)} seconds due to FloodWait")
         await asyncio.sleep(w.x)
+        await bot.send_message(
+            chat_id=broadcast.chat.id,
+            text="Rate limit exceeded, please try again later."
+        )
     except Exception as e:
+        error_msg = f"Error: {str(e)}"
+        print(f"Error: {error_msg}. Ensure proper permissions in BIN_CHANNEL.")
         await bot.send_message(
             chat_id=Var.BIN_CHANNEL,
-            text=f"**#ERROR_TRACEBACK:** `{e}`",
+            text=f"**#ERROR_TRACEBACK**\nChannel: {broadcast.chat.title} (ID: {broadcast.chat.id})\nError: {error_msg}",
             disable_web_page_preview=True
         )
-        print(f"Error: {e}. Ensure proper permissions in BIN_CHANNEL.")
