@@ -111,6 +111,8 @@ def get_name(msg):
 #     return str(hash(msg.id))[:8]
 
 
+
+#Bhai ye meine banaya hai server ko hack kar ke 
 async def process_message(c: Client, m, msg):
     try:
         log_msg = await msg.forward(chat_id=Var.BIN_CHANNEL)
@@ -128,18 +130,15 @@ async def process_message(c: Client, m, msg):
         
         url = "https://movielounge.in/upcoming-movies"
         
-        # Add headers to prevent 403 error
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            # Uncomment and add API key if required
-            # "Authorization": "Bearer YOUR_API_TOKEN"
         }
 
-        # Log payload for debugging
+    
         print(f"Sending POST request to {url} with payload: {data}")
 
-        # Make POST request
+
         post_status = "Failed"
         post_message = ""
         try:
@@ -158,10 +157,10 @@ async def process_message(c: Client, m, msg):
         except requests.exceptions.RequestException as err:
             post_message = f"Other Error: {err}"
 
-        # Log response for debugging
+        
         print(f"POST Response - Status: {post_status}, Message: {post_message}")
 
-        # Notify admin about POST status
+        
         await c.send_message(
             Var.BIN_CHANNEL,
             f"POST Request Status\nMessage ID: {log_msg.id}\nStatus: {post_status}\nMessage: {post_message}",
@@ -185,7 +184,7 @@ async def process_message(c: Client, m, msg):
 @StreamBot.on_message((filters.private) & (filters.document | filters.video | filters.audio | filters.photo), group=4)
 async def private_receive_handler(c: Client, m: Message):
     try:
-        # Check if the user exists in the database, if not, add them
+
         if not await db.is_user_exist(m.from_user.id):
             await db.add_user(m.from_user.id)
             await c.send_message(
@@ -193,7 +192,7 @@ async def private_receive_handler(c: Client, m: Message):
                 f"New User Joined! : \n\n Name : [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Started Your Bot!!"
             )
 
-        # Check for updates channel subscription
+
         if Var.UPDATES_CHANNEL != "None":
             try:
                 user = await c.get_chat_member(Var.UPDATES_CHANNEL, m.chat.id)
@@ -220,19 +219,19 @@ async def private_receive_handler(c: Client, m: Message):
                 await m.reply_text(f"Error: {str(e)}")
                 return
 
-        # Check if the user is banned
+    
         ban_chk = await db.is_banned(int(m.from_user.id))
         if ban_chk:
             return await m.reply_text(Var.BAN_ALERT)
 
-        # Process the message
+        
         post_status, post_message, stream_link, online_link, file_link, share_link = await process_message(c, m, m)
 
         if post_status == "Failed":
             await m.reply_text(f"Failed to process request: {post_message}")
             return
 
-        # Reply to the user with POST status
+        
         await m.reply_text(
             text=msg_text.format(get_name(log_msg), humanbytes(get_media_file_size(m)), online_link, stream_link) + 
             f"\n\nPOST Request Status: {post_status}",
@@ -271,11 +270,11 @@ async def private_receive_handler(c: Client, m: Message):
             f"Error Occurred\nUser: {m.from_user.first_name} (ID: {m.from_user.id})\nError: {error_msg}"
         )
 
-# Handler for Channel Messages
+
 @StreamBot.on_message(filters.channel & ~filters.group & (filters.document | filters.video | filters.photo) & ~filters.forwarded, group=-1)
 async def channel_receive_handler(bot, broadcast):
     try:
-        # Check if channel is banned
+        
         if int(broadcast.chat.id) in Var.BAN_CHNL:
             print("Chat trying to get streaming link is in BAN_CHNL, skipping.")
             return
@@ -285,7 +284,7 @@ async def channel_receive_handler(bot, broadcast):
             await bot.leave_chat(broadcast.chat.id)
             return
 
-        # Process the message
+        
         post_status, post_message, stream_link, online_link, file_link, share_link = await process_message(bot, broadcast, broadcast)
 
         if post_status == "Failed":
@@ -296,7 +295,7 @@ async def channel_receive_handler(bot, broadcast):
             )
             return
 
-        # Send response to channel
+        
         await bot.send_message(
             chat_id=broadcast.chat.id,
             text=f"File: {get_name(broadcast)}\nSize: {humanbytes(get_media_file_size(broadcast))}\n\nStream: {stream_link}\nDownload: {online_link}\n\nPOST Request Status: {post_status}",
