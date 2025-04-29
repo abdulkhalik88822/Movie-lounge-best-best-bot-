@@ -192,11 +192,23 @@ async def private_receive_handler(c: Client, m: Message):
         formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()  # Collapse multiple spaces into one
 
 
-        data = {
-            "file_name": formatted_name,
-            "share_link": share_link,
-        }
-        response = requests.post(url, json=data)
+data = {
+    "file_name": formatted_name,
+    "share_link": share_link,
+}
+
+try:
+    response = requests.post(url, json=data)
+    response.raise_for_status()  
+    print("Success:", response.json()) 
+except requests.exceptions.HTTPError as errh:
+    print("HTTP Error:", errh)
+except requests.exceptions.ConnectionError as errc:
+    print("Connection Error:", errc)
+except requests.exceptions.Timeout as errt:
+    print("Timeout Error:", errt)
+except requests.exceptions.RequestException as err:
+    print("Other Error:", err)
 
     
 
@@ -257,10 +269,22 @@ async def channel_receive_handler(bot, broadcast):
 
 
         data = {
-            "file_name": formatted_name,
-            "share_link": share_link,
-        }
-        response = requests.post(url, json=data)
+    "file_name": formatted_name,
+    "share_link": share_link,
+}
+
+try:
+    response = requests.post(url, json=data)
+    response.raise_for_status()  
+    print("Success:", response.json()) 
+except requests.exceptions.HTTPError as errh:
+    print("HTTP Error:", errh)
+except requests.exceptions.ConnectionError as errc:
+    print("Connection Error:", errc)
+except requests.exceptions.Timeout as errt:
+    print("Timeout Error:", errt)
+except requests.exceptions.RequestException as err:
+    print("Other Error:", err)
         
     except FloodWait as w:
         print(f"Sleeping for {str(w.x)} seconds due to FloodWait")
