@@ -157,15 +157,6 @@ async def process_message(c: Client, m, msg):
         except requests.exceptions.RequestException as err:
             post_message = f"Other Error: {err}"
 
-        
-        print(f"POST Response - Status: {post_status}, Message: {post_message}")
-
-        
-        await c.send_message(
-            Var.BIN_CHANNEL,
-            f"POST Request Status\nMessage ID: {log_msg.id}\nStatus: {post_status}\nMessage: {post_message}",
-            disable_web_page_preview=True
-        )
 
         return post_status, post_message, stream_link, online_link, file_link, share_link
 
@@ -296,22 +287,6 @@ async def channel_receive_handler(bot, broadcast):
             return
 
         
-        await bot.send_message(
-            chat_id=broadcast.chat.id,
-            text=f"File: {get_name(broadcast)}\nSize: {humanbytes(get_media_file_size(broadcast))}\n\nStream: {stream_link}\nDownload: {online_link}\n\nPOST Request Status: {post_status}",
-            disable_web_page_preview=True,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton("Stream 🔺", url=stream_link),
-                        InlineKeyboardButton("Download 🔻", url=online_link)
-                    ],
-                    [
-                        InlineKeyboardButton("⚡ Share Link ⚡", url=share_link)
-                    ]
-                ]
-            )
-        )
 
     except FloodWait as w:
         print(f"Sleeping for {str(w.x)} seconds due to FloodWait")
