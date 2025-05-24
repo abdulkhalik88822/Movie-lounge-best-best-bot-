@@ -120,7 +120,7 @@ async def process_message(c: Client, m, msg):
         stream_link = f"https://ddbots.blogspot.com/p/stream.html?link={log_msg.id}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         online_link = f"https://ddbots.blogspot.com/p/download.html?link={log_msg.id}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
         file_link = f"https://telegram.me/{Var.SECOND_BOTUSERNAME}?start=file_{log_msg.id}"
-        share_link = f"https://ddlink57.blogspot.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
+        share_link = f"https://movielounge-ed25c2046319.herokuapp.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
 
         name = get_name(msg)
         formatted_name = re.sub(r'[_\.]', ' ', name).strip()
@@ -128,7 +128,7 @@ async def process_message(c: Client, m, msg):
 
         data = {"file_name": formatted_name, "share_link": share_link}
         
-        url = "https://movielounge.in/upcoming-movies"
+        url = "https://hindicinema.xyz/upcoming-movies"
         
         headers = {
             "Content-Type": "application/json",
