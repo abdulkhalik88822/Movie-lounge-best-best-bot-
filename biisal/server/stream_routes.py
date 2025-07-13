@@ -17,6 +17,7 @@ from ..utils.time_format import get_readable_time
 from ..utils.custom_dl import ByteStreamer
 from biisal.utils.render_template import render_page
 from biisal.vars import Var
+from aiohttp.web import HTTPFound
 
 routes = web.RouteTableDef()
 
@@ -63,27 +64,61 @@ async def stream_handler(request: web.Request):
         logging.critical(e.with_traceback(None))
         raise web.HTTPInternalServerError(text=str(e))
 
+
 @routes.get(r"/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
+    start_time = time.time()
+    redirect_url = "https://hindicinema.xyz"
+    
     try:
         path = request.match_info["path"]
         match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path)
+        
         if match:
             secure_hash = match.group(1)
-            id = int(match.group(2))
+            file_id = int(match.group(2))
         else:
-            id = int(re.search(r"(\d+)(?:\/\S+)?", path).group(1))
+            file_id_match = re.search(r"(\d+)(?:\/\S+)?", path)
+            if not file_id_match:
+                # Ensure we don't exceed 3 second response time
+                if time.time() - start_time < 2.5:
+                    time.sleep(0.1)  # Small delay to prevent immediate redirect
+                return HTTPFound(redirect_url)
+            file_id = int(file_id_match.group(1))
             secure_hash = request.rel_url.query.get("hash")
-        return await media_streamer(request, id, secure_hash)
+        
+        # Check if we still have time to process
+        if time.time() - start_time > 2.5:
+            return HTTPFound(redirect_url)
+            
+        return await media_streamer(request, file_id, secure_hash)
+        
     except InvalidHash as e:
-        raise web.HTTPForbidden(text=e.message)
+        logging.warning(f"Invalid hash for file {file_id}: {str(e)}")
+        return HTTPFound(redirect_url)
+        
     except FIleNotFound as e:
-        raise web.HTTPNotFound(text=e.message)
-    except (AttributeError, BadStatusLine, ConnectionResetError):
-        pass
+        logging.warning(f"File not found {file_id}: {str(e)}")
+        return HTTPFound(redirect_url)
+        
+    except (ValueError, AttributeError) as e:
+        logging.warning(f"Invalid request format: {str(e)}")
+        return HTTPFound(redirect_url)
+        
+    except (BadStatusLine, ConnectionResetError) as e:
+        logging.warning(f"Connection error: {str(e)}")
+        return HTTPFound(redirect_url)
+        
     except Exception as e:
-        logging.critical(e.with_traceback(None))
-        raise web.HTTPInternalServerError(text=str(e))
+        logging.critical(f"Unexpected error: {str(e)}", exc_info=True)
+        return HTTPFound(redirect_url)
+    
+    finally:
+        # Ensure total time never exceeds 3 seconds
+        elapsed = time.time() - start_time
+        if elapsed < 3:
+            time.sleep(min(3 - elapsed, 0.1))  # Small delay if response was too fast
+            
 
 class_cache = {}
 
