@@ -3,6 +3,7 @@ import asyncio
 import requests
 import re
 import time
+import aiohttp
 from asyncio import TimeoutError
 from biisal.bot import StreamBot
 from biisal.utils.database import Database
