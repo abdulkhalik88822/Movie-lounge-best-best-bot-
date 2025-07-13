@@ -153,7 +153,7 @@ async def process_message(c: Client, m, msg):
                 "stream_link": f"https://ddbots.blogspot.com/p/stream.html?link={log_msg.id}/{quoted_name}?hash={file_hash}",
                 "online_link": f"https://ddbots.blogspot.com/p/download.html?link={log_msg.id}/{quoted_name}?hash={file_hash}",
                 "file_link": f"https://telegram.me/{Var.SECOND_BOTUSERNAME}?start=file_{log_msg.id}",
-                "share_link": f"https://movielounge-ed25c2046319.herokuapp.com/{log_msg.id}/{quoted_name}?hash={file_hash}"
+                "share_link": f"https://tragic-suki-vanshyadav1-26152d88.koyeb.app/{log_msg.id}/{quoted_name}?hash={file_hash}"
             })
         except Exception as e:
             error_msg = f"Failed to generate links: {str(e)}"
