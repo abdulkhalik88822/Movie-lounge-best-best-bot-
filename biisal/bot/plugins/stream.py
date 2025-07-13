@@ -106,70 +106,114 @@ def get_name(msg):
         return msg.video.file_name
     return "Unknown"
 
-# def get_hash(msg):
-#     # Example hash logic; you can implement a real hash function based on your needs
-#     return str(hash(msg.id))[:8]
 
-
-
-#Bhai ye meine banaya hai server ko hack kar ke 
 async def process_message(c: Client, m, msg):
+    """
+    Process a message by forwarding it to BIN_CHANNEL and generating shareable links.
+    Only makes POST request if forwarding is successful.
+    """
+    # Initialize all return values
+    result = {
+        "post_status": "Failed",
+        "post_message": "",
+        "stream_link": None,
+        "online_link": None,
+        "file_link": None,
+        "share_link": None
+    }
+
     try:
-        log_msg = await msg.forward(chat_id=Var.BIN_CHANNEL)
+        # Step 1: Forward message to BIN_CHANNEL
+        try:
+            log_msg = await msg.forward(chat_id=Var.BIN_CHANNEL)
+            print(f"Message forwarded to BIN_CHANNEL with ID: {log_msg.id}")
+        except Exception as e:
+            error_msg = f"Failed to forward message to BIN_CHANNEL: {str(e)}"
+            print(error_msg)
+            await m.reply_text("Failed to process your request. Please try again.")
+            await c.send_message(
+                Var.BIN_CHANNEL,
+                f"Forwarding Failed\nMessage ID: {msg.id}\nError: {error_msg}",
+                disable_web_page_preview=True
+            )
+            return result
 
-        stream_link = f"https://ddbots.blogspot.com/p/stream.html?link={log_msg.id}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        online_link = f"https://ddbots.blogspot.com/p/download.html?link={log_msg.id}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
-        file_link = f"https://telegram.me/{Var.SECOND_BOTUSERNAME}?start=file_{log_msg.id}"
-        share_link = f"https://movielounge-ed25c2046319.herokuapp.com/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
+        # Step 2: Generate all links
+        try:
+            file_name = get_name(msg)
+            file_hash = get_hash(log_msg)
+            quoted_name = quote_plus(file_name)
 
-        name = get_name(msg)
-        formatted_name = re.sub(r'[_\.]', ' ', name).strip()
-        formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()
+            # Format file name for display
+            formatted_name = re.sub(r'[_\.]', ' ', file_name).strip()
+            formatted_name = re.sub(r'\s+', ' ', formatted_name).strip()
 
-        data = {"file_name": formatted_name, "share_link": share_link}
-        
+            result.update({
+                "stream_link": f"https://ddbots.blogspot.com/p/stream.html?link={log_msg.id}/{quoted_name}?hash={file_hash}",
+                "online_link": f"https://ddbots.blogspot.com/p/download.html?link={log_msg.id}/{quoted_name}?hash={file_hash}",
+                "file_link": f"https://telegram.me/{Var.SECOND_BOTUSERNAME}?start=file_{log_msg.id}",
+                "share_link": f"https://movielounge-ed25c2046319.herokuapp.com/{log_msg.id}/{quoted_name}?hash={file_hash}"
+            })
+        except Exception as e:
+            error_msg = f"Failed to generate links: {str(e)}"
+            print(error_msg)
+            result["post_message"] = error_msg
+            return result
+
+        # Step 3: Make POST request
         url = "https://hindicinema.xyz/upcoming-movies"
-        
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         }
+        data = {
+            "file_name": formatted_name,
+            "share_link": result["share_link"]
+        }
 
-    
-        print(f"Sending POST request to {url} with payload: {data}")
+        print(f"Attempting POST request to {url} with payload: {data}")
 
-
-        post_status = "Failed"
-        post_message = ""
         try:
-            response = requests.post(url, json=data, headers=headers, timeout=10)
-            response.raise_for_status()
-            post_status = "Success"
-            post_message = f"POST request successful: {response.json()}"
-        except requests.exceptions.HTTPError as errh:
-            post_message = f"HTTP Error: {errh}\nResponse: {response.text}\nStatus Code: {response.status_code}"
-            if response.status_code == 403:
-                post_message += "\n403 Forbidden: Check authentication, headers, or IP whitelisting."
-        except requests.exceptions.ConnectionError as errc:
-            post_message = f"Connection Error: {errc}"
-        except requests.exceptions.Timeout as errt:
-            post_message = f"Timeout Error: {errt}"
-        except requests.exceptions.RequestException as err:
-            post_message = f"Other Error: {err}"
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url,
+                    json=data,
+                    headers=headers,
+                    timeout=10
+                ) as response:
+                    response.raise_for_status()
+                    response_data = await response.json()
+                    
+                    result.update({
+                        "post_status": "Success",
+                        "post_message": f"POST request successful: {response_data}"
+                    })
+                    print("POST request successful")
+        except Exception as e:
+            error_details = f"POST request failed: {str(e)}"
+            if hasattr(e, 'status'):
+                error_details += f" | Status: {e.status}"
+            if hasattr(e, 'message'):
+                error_details += f" | Message: {e.message}"
+            
+            result.update({
+                "post_message": error_details
+            })
+            print(error_details)
 
-
-        return post_status, post_message, stream_link, online_link, file_link, share_link
+        return result
 
     except Exception as e:
-        error_msg = f"Error processing message: {str(e)}"
+        error_msg = f"Unexpected error in process_message: {str(e)}"
         print(error_msg)
-        await m.reply_text(error_msg)
+        await m.reply_text("An unexpected error occurred. Please try again.")
         await c.send_message(
             Var.BIN_CHANNEL,
-            f"Error Processing Message\nMessage ID: {msg.id}\nError: {error_msg}",
+            f"Unexpected Error\nMessage ID: {msg.id}\nError: {error_msg}",
             disable_web_page_preview=True
         )
-        return "Failed", error_msg, None, None, None, None
+        return
+        
 
 # Handler for Private Messages
 @StreamBot.on_message((filters.private) & (filters.document | filters.video | filters.audio | filters.photo), group=4)
